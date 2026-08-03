@@ -1,34 +1,9 @@
 import bcrypt from 'bcryptjs'
-import nodemailer from 'nodemailer'
+import { SibApiV3Sdk, TransactionalEmailsApi, SendSmtpEmail } from 'sib-api-v3-sdk'
 import User from '../models/User.js'
 import VerifierRequest from '../models/VerifierRequest.js'
 import { verifyGoogleToken } from '../config/googleAuth.js'
 import { generateToken } from '../utils/generateToken.js'
-
-const createEmailTransporter = (authUser = null) => {
-  const emailHost = process.env.EMAIL_HOST
-  const emailPort = process.env.EMAIL_PORT
-  const emailUser = process.env.EMAIL_USER
-  const emailPass = process.env.EMAIL_PASS
-
-  if (!emailHost || !emailUser || !emailPass) {
-    throw new Error(
-      'Email is not configured. Please set EMAIL_HOST, EMAIL_USER, and EMAIL_PASS in your .env file.\n' +
-      'See server/.env.example for setup instructions.'
-    )
-  }
-
-  return nodemailer.createTransport({
-    host: emailHost,
-    port: Number(emailPort || 587),
-    secure: false,
-    requireTLS: true,
-    auth: {
-      user: authUser || emailUser,
-      pass: emailPass,
-    },
-  })
-}
 
 const generateOtp = () => {
   return Math.floor(100000 + Math.random() * 900000).toString()
@@ -37,30 +12,32 @@ const generateOtp = () => {
 const sendOtpEmail = async (email, otp) => {
   try {
     console.log('Attempting to send OTP email to:', email)
-    console.log('Using EMAIL_HOST:', process.env.EMAIL_HOST)
-    console.log('Using EMAIL_USER:', process.env.EMAIL_USER)
-    console.log('Using EMAIL_FROM:', process.env.EMAIL_FROM)
     
-    const transporter = createEmailTransporter()
+    const apiKey = process.env.BREVO_API_KEY
+    if (!apiKey) {
+      throw new Error('BREVO_API_KEY is not configured in .env file')
+    }
 
-    await transporter.sendMail({
-      from: process.env.EMAIL_FROM,
-      to: email,
+    const defaultApiInstance = new TransactionalEmailsApi()
+    const apiKeyAuth = apiKey
+    defaultApiInstance.authentications['api-key'].apiKey = apiKeyAuth
+
+    const sendSmtpEmail = new SendSmtpEmail({
+      to: [{ email: email }],
+      sender: { email: process.env.EMAIL_FROM || 'pdpu1234@gmail.com', name: 'CredCheck' },
       subject: 'CredCheck Email Verification OTP',
-      html: `
+      htmlContent: `
         <p>Your OTP is</p>
         <h2>${otp}</h2>
         <p>This OTP expires in 10 minutes.</p>
       `,
     })
-    
-    console.log('OTP email sent successfully to:', email)
+
+    const data = await defaultApiInstance.sendTransacEmail(sendSmtpEmail)
+    console.log('OTP email sent successfully to:', email, 'Message ID:', data.messageId)
   } catch (error) {
     console.error('OTP email send failed:', error)
-    console.error('Error code:', error.code)
     console.error('Error response:', error.response)
-    console.error('Error responseCode:', error.responseCode)
-    console.error('SMTP Error - Check if sender email is verified in Brevo dashboard')
     throw new Error(`Failed to send OTP email: ${error.message}`)
   }
 }
