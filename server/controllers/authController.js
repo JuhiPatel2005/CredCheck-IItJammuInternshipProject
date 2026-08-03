@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs'
 import SibApiV3Sdk from 'sib-api-v3-sdk'
+import nodemailer from 'nodemailer'
 import User from '../models/User.js'
 import VerifierRequest from '../models/VerifierRequest.js'
 import { verifyGoogleToken } from '../config/googleAuth.js'
@@ -9,31 +10,89 @@ const generateOtp = () => {
   return Math.floor(100000 + Math.random() * 900000).toString()
 }
 
+const SENDER_EMAIL = process.env.EMAIL_FROM || 'pdpu1234@gmail.com'
+
+const buildOtpHtml = (otp) => `
+  <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 12px;">
+    <div style="text-align: center; margin-bottom: 20px;">
+      <div style="display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; background: #4f46e5; color: white; border-radius: 10px; font-size: 24px;">🔒</div>
+    </div>
+    <h2 style="text-align: center; color: #111827; margin: 0 0 16px;">CredCheck Email Verification</h2>
+    <p style="color: #374151; text-align: center;">Your OTP code is</p>
+    <div style="text-align: center; font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #4f46e5; background: #eef2ff; border-radius: 8px; padding: 12px; margin: 16px 0;">${otp}</div>
+    <p style="color: #6b7280; text-align: center; font-size: 14px;">This OTP expires in 10 minutes.</p>
+    <p style="color: #9ca3af; text-align: center; font-size: 12px; margin-top: 24px;">If you did not request this, please ignore this email.</p>
+  </div>
+`
+
 const sendOtpEmail = async (email, otp) => {
+  console.log('Attempting to send OTP email to:', email)
+
+  const apiKey = process.env.BREVO_API_KEY
+  if (!apiKey) {
+    throw new Error('BREVO_API_KEY is not configured in .env file')
+  }
+
+  const keyType = apiKey.startsWith('xkeysib-')
+    ? 'API v3 (xkeysib-)'
+    : apiKey.startsWith('xsmtpsib-')
+      ? 'SMTP relay (xsmtpsib-)'
+      : 'unknown'
+  console.log('BREVO_API_KEY type detected:', keyType)
+
+  // Brevo HTTP API v3 keys start with "xkeysib-". Prefer this method.
+  if (apiKey.startsWith('xkeysib-')) {
+    try {
+      SibApiV3Sdk.ApiClient.instance.authentications['api-key'].apiKey = apiKey
+      const defaultApiInstance = new SibApiV3Sdk.TransactionalEmailsApi()
+
+      const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail({
+        to: [{ email: email }],
+        sender: { email: SENDER_EMAIL, name: 'CredCheck' },
+        subject: 'CredCheck Email Verification OTP',
+        htmlContent: buildOtpHtml(otp),
+      })
+
+      const data = await defaultApiInstance.sendTransacEmail(sendSmtpEmail)
+      console.log('OTP email sent via Brevo API to:', email, 'Message ID:', data.messageId)
+      return
+    } catch (error) {
+      console.error('Brevo API sending failed, falling back to SMTP:', error)
+      // Fall through to SMTP retry
+    }
+  }
+
+  // Brevo SMTP relay keys start with "xsmtpsib-". Use nodemailer with SMTP relay.
   try {
-    console.log('Attempting to send OTP email to:', email)
-    
-    const apiKey = process.env.BREVO_API_KEY
-    if (!apiKey) {
-      throw new Error('BREVO_API_KEY is not configured in .env file')
+    const smtpHost = process.env.EMAIL_HOST || 'smtp-relay.brevo.com'
+    const smtpPort = parseInt(process.env.EMAIL_PORT || '587', 10)
+    const smtpUser = process.env.EMAIL_USER || SENDER_EMAIL
+    const smtpPass = process.env.EMAIL_PASS || apiKey
+
+    if (!smtpUser || !smtpPass) {
+      throw new Error('SMTP credentials are not configured (EMAIL_USER / EMAIL_PASS)')
     }
 
-    SibApiV3Sdk.ApiClient.instance.authentications['api-key'].apiKey = apiKey
-    const defaultApiInstance = new SibApiV3Sdk.TransactionalEmailsApi()
+    console.log('Attempting to send OTP email via SMTP relay:', smtpHost, 'port:', smtpPort, 'user:', smtpUser)
 
-    const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail({
-      to: [{ email: email }],
-      sender: { email: process.env.EMAIL_FROM || 'pdpu1234@gmail.com', name: 'CredCheck' },
-      subject: 'CredCheck Email Verification OTP',
-      htmlContent: `
-        <p>Your OTP is</p>
-        <h2>${otp}</h2>
-        <p>This OTP expires in 10 minutes.</p>
-      `,
+    const transporter = nodemailer.createTransport({
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpPort === 465,
+      auth: {
+        user: smtpUser,
+        pass: smtpPass,
+      },
     })
 
-    const data = await defaultApiInstance.sendTransacEmail(sendSmtpEmail)
-    console.log('OTP email sent successfully to:', email, 'Message ID:', data.messageId)
+    await transporter.sendMail({
+      from: `"CredCheck" <${SENDER_EMAIL}>`,
+      to: email,
+      subject: 'CredCheck Email Verification OTP',
+      html: buildOtpHtml(otp),
+    })
+
+    console.log('OTP email sent via SMTP relay to:', email)
   } catch (error) {
     console.error('OTP email send failed:', error)
     console.error('Error response:', error.response)
