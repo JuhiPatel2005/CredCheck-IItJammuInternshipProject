@@ -26,7 +26,7 @@ const buildOtpHtml = (otp) => `
 `
 
 const sendOtpEmail = async (email, otp) => {
-  console.log('Attempting to send OTP email to:', email)
+  console.log('[OTP EMAIL] Attempting to send OTP email to:', email)
 
   const apiKey = process.env.BREVO_API_KEY
   if (!apiKey) {
@@ -38,66 +38,91 @@ const sendOtpEmail = async (email, otp) => {
     : apiKey.startsWith('xsmtpsib-')
       ? 'SMTP relay (xsmtpsib-)'
       : 'unknown'
-  console.log('BREVO_API_KEY type detected:', keyType)
 
-  // Brevo HTTP API v3 keys start with "xkeysib-". Prefer this method.
+  console.log('[OTP EMAIL] BREVO_API_KEY type detected:', keyType)
+  console.log('[OTP EMAIL] Sender email (EMAIL_FROM):', SENDER_EMAIL)
+  console.log('[OTP EMAIL] Recipient email:', email)
+
   if (apiKey.startsWith('xkeysib-')) {
+    console.log('[OTP EMAIL] Selected path: Brevo HTTP API v3')
     try {
       SibApiV3Sdk.ApiClient.instance.authentications['api-key'].apiKey = apiKey
       const defaultApiInstance = new SibApiV3Sdk.TransactionalEmailsApi()
 
-      const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail({
+      const sendSmtpEmail = SibApiV3Sdk.SendSmtpEmail.constructFromObject({
         to: [{ email: email }],
         sender: { email: SENDER_EMAIL, name: 'CredCheck' },
         subject: 'CredCheck Email Verification OTP',
         htmlContent: buildOtpHtml(otp),
       })
 
+      console.log('[OTP EMAIL] Request object prepared for Brevo API (sender, to, subject, htmlContent populated)')
+
       const data = await defaultApiInstance.sendTransacEmail(sendSmtpEmail)
-      console.log('OTP email sent via Brevo API to:', email, 'Message ID:', data.messageId)
+      console.log('[OTP EMAIL] OTP email sent via Brevo HTTP API to:', email, 'Message ID:', data.messageId)
+      console.log('[OTP EMAIL] Brevo response:', JSON.stringify(data))
       return
     } catch (error) {
-      console.error('Brevo API sending failed, falling back to SMTP:', error)
-      // Fall through to SMTP retry
+      console.error('[OTP EMAIL] Brevo HTTP API FAILED:')
+      console.error('[OTP EMAIL]   message:', error.message)
+      console.error('[OTP EMAIL]   status:', error.status)
+      console.error('[OTP EMAIL]   response text:', error.text)
+      console.error('[OTP EMAIL]   full stack:', error.stack)
+      throw new Error(`Failed to send OTP email via Brevo API: ${error.message}`)
     }
   }
 
-  // Brevo SMTP relay keys start with "xsmtpsib-". Use nodemailer with SMTP relay.
-  try {
-    const smtpHost = process.env.EMAIL_HOST || 'smtp-relay.brevo.com'
-    const smtpPort = parseInt(process.env.EMAIL_PORT || '587', 10)
-    const smtpUser = process.env.EMAIL_USER || SENDER_EMAIL
-    const smtpPass = process.env.EMAIL_PASS || apiKey
+  if (apiKey.startsWith('xsmtpsib-')) {
+    console.log('[OTP EMAIL] Selected path: Brevo SMTP relay (nodemailer)')
+    try {
+      const smtpHost = process.env.EMAIL_HOST || 'smtp-relay.brevo.com'
+      const smtpPort = parseInt(process.env.EMAIL_PORT || '587', 10)
+      const smtpUser = process.env.EMAIL_USER || SENDER_EMAIL
+      const smtpPass = process.env.EMAIL_PASS || apiKey
 
-    if (!smtpUser || !smtpPass) {
-      throw new Error('SMTP credentials are not configured (EMAIL_USER / EMAIL_PASS)')
+      if (!smtpUser || !smtpPass) {
+        throw new Error('SMTP credentials are not configured (EMAIL_USER / EMAIL_PASS)')
+      }
+
+      console.log('[OTP EMAIL] SMTP config: host=%s port=%d secure=%s user=%s', smtpHost, smtpPort, smtpPort === 465, smtpUser)
+      console.log('[OTP EMAIL] Creating nodemailer transporter...')
+
+      const transporter = nodemailer.createTransport({
+        host: smtpHost,
+        port: smtpPort,
+        secure: smtpPort === 465,
+        auth: {
+          user: smtpUser,
+          pass: smtpPass,
+        },
+        connectionTimeout: 30000,
+      })
+
+      console.log('[OTP EMAIL] Transporter created. Sending email...')
+
+      const info = await transporter.sendMail({
+        from: `"CredCheck" <${SENDER_EMAIL}>`,
+        to: email,
+        subject: 'CredCheck Email Verification OTP',
+        html: buildOtpHtml(otp),
+      })
+
+      console.log('[OTP EMAIL] OTP email sent via SMTP relay to:', email)
+      console.log('[OTP EMAIL] SMTP response messageId:', info.messageId)
+      console.log('[OTP EMAIL] SMTP response:', JSON.stringify(info))
+    } catch (error) {
+      console.error('[OTP EMAIL] SMTP FAILED:')
+      console.error('[OTP EMAIL]   message:', error.message)
+      console.error('[OTP EMAIL]   code:', error.code)
+      console.error('[OTP EMAIL]   command:', error.command)
+      console.error('[OTP EMAIL]   response:', error.response)
+      console.error('[OTP EMAIL]   full stack:', error.stack)
+      throw new Error(`Failed to send OTP email: ${error.message}`)
     }
-
-    console.log('Attempting to send OTP email via SMTP relay:', smtpHost, 'port:', smtpPort, 'user:', smtpUser)
-
-    const transporter = nodemailer.createTransport({
-      host: smtpHost,
-      port: smtpPort,
-      secure: smtpPort === 465,
-      auth: {
-        user: smtpUser,
-        pass: smtpPass,
-      },
-    })
-
-    await transporter.sendMail({
-      from: `"CredCheck" <${SENDER_EMAIL}>`,
-      to: email,
-      subject: 'CredCheck Email Verification OTP',
-      html: buildOtpHtml(otp),
-    })
-
-    console.log('OTP email sent via SMTP relay to:', email)
-  } catch (error) {
-    console.error('OTP email send failed:', error)
-    console.error('Error response:', error.response)
-    throw new Error(`Failed to send OTP email: ${error.message}`)
+    return
   }
+
+  throw new Error('Unsupported BREVO_API_KEY format. Expected "xkeysib-" or "xsmtpsib-" prefix.')
 }
 
 export const googleLogin = async (req, res) => {
