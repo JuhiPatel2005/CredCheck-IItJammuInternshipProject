@@ -24,7 +24,9 @@ services:
         sync: false
       - key: CLOUDINARY_API_SECRET
         sync: false
-      - key: EMAIL_SERVICE
+      - key: EMAIL_HOST
+        sync: false
+      - key: EMAIL_PORT
         sync: false
       - key: EMAIL_USER
         sync: false

@@ -5,23 +5,27 @@ import VerifierRequest from '../models/VerifierRequest.js'
 import { verifyGoogleToken } from '../config/googleAuth.js'
 import { generateToken } from '../utils/generateToken.js'
 
-const EMAIL_SERVICE = process.env.EMAIL_SERVICE
-const EMAIL_USER = process.env.EMAIL_USER
-const EMAIL_PASS = process.env.EMAIL_PASS
+const createEmailTransporter = (authUser = null) => {
+  const emailHost = process.env.EMAIL_HOST
+  const emailPort = process.env.EMAIL_PORT
+  const emailUser = process.env.EMAIL_USER
+  const emailPass = process.env.EMAIL_PASS
 
-const createEmailTransporter = () => {
-  if (!EMAIL_SERVICE || !EMAIL_USER || !EMAIL_PASS) {
+  if (!emailHost || !emailUser || !emailPass) {
     throw new Error(
-      'Email is not configured. Please set EMAIL_SERVICE, EMAIL_USER, and EMAIL_PASS in your .env file.\n' +
+      'Email is not configured. Please set EMAIL_HOST, EMAIL_USER, and EMAIL_PASS in your .env file.\n' +
       'See server/.env.example for setup instructions.'
     )
   }
 
   return nodemailer.createTransport({
-    service: EMAIL_SERVICE,
+    host: emailHost,
+    port: Number(emailPort || 587),
+    secure: false,
+    requireTLS: true,
     auth: {
-      user: EMAIL_USER,
-      pass: EMAIL_PASS,
+      user: authUser || emailUser,
+      pass: emailPass,
     },
   })
 }
@@ -32,10 +36,15 @@ const generateOtp = () => {
 
 const sendOtpEmail = async (email, otp) => {
   try {
+    console.log('Attempting to send OTP email to:', email)
+    console.log('Using EMAIL_HOST:', process.env.EMAIL_HOST)
+    console.log('Using EMAIL_USER:', process.env.EMAIL_USER)
+    console.log('Using EMAIL_FROM:', process.env.EMAIL_FROM)
+    
     const transporter = createEmailTransporter()
 
     await transporter.sendMail({
-      from: EMAIL_USER,
+      from: process.env.EMAIL_FROM,
       to: email,
       subject: 'CredCheck Email Verification OTP',
       html: `
@@ -44,7 +53,14 @@ const sendOtpEmail = async (email, otp) => {
         <p>This OTP expires in 10 minutes.</p>
       `,
     })
+    
+    console.log('OTP email sent successfully to:', email)
   } catch (error) {
+    console.error('OTP email send failed:', error)
+    console.error('Error code:', error.code)
+    console.error('Error response:', error.response)
+    console.error('Error responseCode:', error.responseCode)
+    console.error('SMTP Error - Check if sender email is verified in Brevo dashboard')
     throw new Error(`Failed to send OTP email: ${error.message}`)
   }
 }
@@ -195,6 +211,8 @@ export const registerVerifier = async (req, res) => {
   try {
     await sendOtpEmail(email, otp)
   } catch (emailError) {
+    console.error('Failed to send OTP email during verifier registration:', emailError.message)
+    return res.status(500).json({ message: 'Could not send OTP email. Please try again later.' })
   }
 
   return res.status(201).json({ message: 'OTP sent successfully.' })
@@ -218,6 +236,8 @@ export const resendVerifierOtp = async (req, res) => {
   try {
     await sendOtpEmail(email, otp)
   } catch (emailError) {
+    console.error('Failed to resend OTP email:', emailError.message)
+    return res.status(500).json({ message: 'Could not send OTP email. Please try again later.' })
   }
 
   return res.json({ message: 'OTP resent successfully' })
@@ -291,7 +311,8 @@ export const sendVerifierLoginOtp = async (req, res) => {
   try {
     await sendOtpEmail(email, otp)
   } catch (emailError) {
-    
+    console.error('Failed to send verifier login OTP email:', emailError.message)
+    return res.status(500).json({ message: 'Could not send OTP email. Please try again later.' })
   }
 
   return res.json({ message: 'OTP sent successfully', email })
@@ -366,7 +387,8 @@ export const resendVerifierLoginOtp = async (req, res) => {
   try {
     await sendOtpEmail(email, otp)
   } catch (emailError) {
-    
+    console.error('Failed to resend verifier login OTP email:', emailError.message)
+    return res.status(500).json({ message: 'Could not send OTP email. Please try again later.' })
   }
 
   return res.json({ message: 'OTP resent successfully', email })
@@ -390,6 +412,8 @@ export const resendAdminOtp = async (req, res) => {
   try {
     await sendOtpEmail(email, otp)
   } catch (emailError) {
+    console.error('Failed to resend admin OTP email:', emailError.message)
+    return res.status(500).json({ message: 'Could not send OTP email. Please try again later.' })
   }
 
   return res.json({ message: 'OTP resent successfully', email })
@@ -418,6 +442,8 @@ export const sendAdminOtp = async (req, res) => {
   try {
     await sendOtpEmail(email, otp)
   } catch (emailError) {
+    console.error('Failed to send admin OTP email:', emailError.message)
+    return res.status(500).json({ message: 'Could not send OTP email. Please try again later.' })
   }
 
   return res.json({ message: 'OTP sent successfully', email })

@@ -2,6 +2,7 @@ import dns from 'dns'
 import dotenv from 'dotenv'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
+import mongoose from 'mongoose'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -11,8 +12,7 @@ if (process.env.DNS_SERVERS) {
   dns.setServers(process.env.DNS_SERVERS.split(','))
 }
 
-import app from './app.js'
-import mongoose from 'mongoose'
+const { default: app } = await import('./app.js')
 
 const PORT = process.env.PORT || 5000
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/credcheck'
