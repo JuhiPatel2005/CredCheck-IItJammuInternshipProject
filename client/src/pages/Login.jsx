@@ -185,17 +185,15 @@ export default function Login() {
             </button>
           </div>
 
-          {activeRole === 'student' && (
-            <div className="space-y-4">
-              <div className="text-center text-sm text-gray-600 mb-4">
-                Sign in with your Google account to access your student dashboard
-              </div>
-              <GoogleLogin
-                onSuccess={onGoogleSuccess}
-                onError={onGoogleError}
-              />
+          <div className={`space-y-4 ${activeRole === 'student' ? '' : 'hidden'}`}>
+            <div className="text-center text-sm text-gray-600 mb-4">
+              Sign in with your Google account to access your student dashboard
             </div>
-          )}
+            <GoogleLogin
+              onSuccess={onGoogleSuccess}
+              onError={onGoogleError}
+            />
+          </div>
 
           {activeRole === 'verifier' && !showVerifierOtp && (
             <form onSubmit={handleSubmit(onVerifierSubmit)} className="space-y-4">
