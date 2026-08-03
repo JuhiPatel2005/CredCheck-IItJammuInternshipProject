@@ -193,7 +193,7 @@ export default function Login() {
               <GoogleLogin
                 onSuccess={onGoogleSuccess}
                 onError={onGoogleError}
-                width="320"
+                width="280"
                 height="40"
                 text="signin_with"
                 theme="outline"
