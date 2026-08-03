@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs'
-import { SibApiV3Sdk, TransactionalEmailsApi, SendSmtpEmail } from 'sib-api-v3-sdk'
+import SibApiV3Sdk from 'sib-api-v3-sdk'
 import User from '../models/User.js'
 import VerifierRequest from '../models/VerifierRequest.js'
 import { verifyGoogleToken } from '../config/googleAuth.js'
@@ -18,11 +18,10 @@ const sendOtpEmail = async (email, otp) => {
       throw new Error('BREVO_API_KEY is not configured in .env file')
     }
 
-    const defaultApiInstance = new TransactionalEmailsApi()
-    const apiKeyAuth = apiKey
-    defaultApiInstance.authentications['api-key'].apiKey = apiKeyAuth
+    SibApiV3Sdk.ApiClient.instance.authentications['api-key'].apiKey = apiKey
+    const defaultApiInstance = new SibApiV3Sdk.TransactionalEmailsApi()
 
-    const sendSmtpEmail = new SendSmtpEmail({
+    const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail({
       to: [{ email: email }],
       sender: { email: process.env.EMAIL_FROM || 'pdpu1234@gmail.com', name: 'CredCheck' },
       subject: 'CredCheck Email Verification OTP',
