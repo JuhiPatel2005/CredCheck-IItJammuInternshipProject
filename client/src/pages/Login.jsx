@@ -189,11 +189,20 @@ export default function Login() {
             <div className="text-center text-sm text-gray-600 mb-4">
               Sign in with your Google account to access your student dashboard
             </div>
-            <GoogleLogin
-              onSuccess={onGoogleSuccess}
-              onError={onGoogleError}
-              width="320"
-            />
+            <div className="flex justify-center">
+              <GoogleLogin
+                onSuccess={onGoogleSuccess}
+                onError={onGoogleError}
+                width="320"
+                height="40"
+                text="signin_with"
+                theme="outline"
+                shape="rectangular"
+                size="large"
+                logo_alignment="left"
+                type="standard"
+              />
+            </div>
           </div>
 
           {activeRole === 'verifier' && !showVerifierOtp && (
