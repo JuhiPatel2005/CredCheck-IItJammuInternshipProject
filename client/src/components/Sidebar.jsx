@@ -8,7 +8,10 @@ export default function Sidebar() {
   const role = user?.role
 
   const getLinkClass = (path) => {
-    const isActive = location.pathname === path || location.pathname.startsWith(path + '/')
+    const isDashboard = path.split('/').filter(Boolean).length === 2
+    const isActive = isDashboard
+      ? location.pathname === path
+      : location.pathname === path || location.pathname.startsWith(path + '/')
     return isActive
       ? 'flex items-center gap-3 px-4 py-3 bg-blue-50 text-blue-600 rounded-lg font-medium'
       : 'flex items-center gap-3 px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors'

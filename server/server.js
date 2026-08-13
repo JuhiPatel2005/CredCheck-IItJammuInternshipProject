@@ -26,7 +26,7 @@ const startServer = async () => {
 
     server.on('error', (error) => {
       if (error.code === 'EADDRINUSE') {
-        console.error(`\n❌  Oops! Port ${PORT} is already in use.\n`)
+        console.error(`\n Oops! Port ${PORT} is already in use.\n`)
         console.error('   Something is already listening on this port.')
         console.error('   Try one of these fixes:\n')
         console.error('   1) Kill the old process:')
