@@ -1,6 +1,7 @@
 import User from '../models/User.js'
 import Certificate from '../models/Certificate.js'
 import VerifierRequest from '../models/VerifierRequest.js'
+import { sendVerifierApprovedEmail } from '../utils/emailService.js'
 
 export const getAllUsers = async (req, res) => {
   try {
@@ -102,6 +103,20 @@ export const updateVerifierRequestStatus = async (req, res) => {
         user.approved = false
       }
       await user.save()
+    }
+
+    // --- Notify the verifier that their account was approved ---
+    // IMPORTANT: We try/catch so that if the email fails,
+    // the approval status update still succeeds.
+    if (status === 'approved') {
+      try {
+        await sendVerifierApprovedEmail({
+          verifierEmail: verifierRequest.email,
+          verifierName: user?.name || verifierRequest.organizationName || '',
+        })
+      } catch (emailError) {
+        console.error('[Verifier Approval] Failed to notify verifier via email:', emailError.message)
+      }
     }
 
     res.json({ message: `Verifier request ${status} successfully` })

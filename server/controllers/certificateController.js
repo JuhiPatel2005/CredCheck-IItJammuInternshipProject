@@ -2,6 +2,7 @@ import axios from 'axios'
 import AdmZip from 'adm-zip'
 import Certificate from '../models/Certificate.js'
 import cloudinary from '../config/cloudinary.js'
+import { sendCertificateUploadedEmail } from '../utils/emailService.js'
 
 const getFilenameFromUrl = (fileUrl) => {
   const parts = fileUrl.split('/')
@@ -173,6 +174,20 @@ export const createCertificate = async (req, res) => {
       fileUrl,
       status: 'pending', 
     })
+
+    // --- Notify the verifier that a new certificate is pending their review ---
+    // IMPORTANT: We try/catch so that if the email fails,
+    // the certificate upload still succeeds.
+    try {
+      await sendCertificateUploadedEmail({
+        verifierEmail: verifierEmail,
+        studentName: req.user.name,
+        certificateTitle: title,
+        organization: organization,
+      })
+    } catch (emailError) {
+      console.error('[Certificate Upload] Failed to notify verifier via email:', emailError.message)
+    }
 
     res.status(201).json({ message: 'Certificate uploaded successfully', certificate })
   } catch (error) {

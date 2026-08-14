@@ -1,6 +1,11 @@
 import { v4 as uuidv4 } from 'uuid'
 import QRCode from 'qrcode'
 import Certificate from '../models/Certificate.js'
+import User from '../models/User.js'
+import {
+  sendCertificateVerifiedEmail,
+  sendCertificateRejectedEmail,
+} from '../utils/emailService.js'
 
 export const getVerifierCertificates = async (req, res) => {
   try {
@@ -69,6 +74,38 @@ export const updateCertificateStatus = async (req, res) => {
       { $set: updateData },
       { new: true, runValidators: true }
     )
+
+    // --- Notify the student about the verification result ---
+    // We fetch the student's email from the User collection.
+    // IMPORTANT: We try/catch so that if the email fails,
+    // the certificate status update still succeeds.
+    // NOTE: publicLinkId and qrCodeUrl are read from the updated
+    // certificate document so we always have the latest values.
+    try {
+      const student = await User.findById(certificate.studentId)
+      const studentEmail = student?.email
+
+      if (studentEmail) {
+        if (status === 'verified') {
+          await sendCertificateVerifiedEmail({
+            studentEmail,
+            certificateTitle: certificate.title,
+            organization: certificate.organization,
+            publicLinkId: updatedCertificate.publicLinkId,
+            qrCodeUrl: updatedCertificate.qrCodeUrl,
+          })
+        } else if (status === 'rejected') {
+          await sendCertificateRejectedEmail({
+            studentEmail,
+            certificateTitle: certificate.title,
+            organization: certificate.organization,
+            comments: comments,
+          })
+        }
+      }
+    } catch (emailError) {
+      console.error(`[${status}] Failed to notify student via email:`, emailError.message)
+    }
 
     res.json({ message: `Certificate ${status} successfully`, certificate: updatedCertificate })
   } catch (error) {
