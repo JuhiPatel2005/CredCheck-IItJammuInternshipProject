@@ -194,3 +194,141 @@ export const toggleTrustedVerifier = async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message })
   }
 }
+
+// ============================================================
+// ANALYTICS
+// ============================================================
+
+// This function calculates statistics for the Admin Analytics Dashboard.
+// It reads REAL data from MongoDB using countDocuments and aggregate queries.
+// No new fields or schemas are created - we only read existing data.
+export const getAnalytics = async (req, res) => {
+  try {
+    // 1. Count users by role (students and verifiers)
+    const totalStudents = await User.countDocuments({ role: 'student' })
+    const totalVerifiers = await User.countDocuments({ role: 'verifier' })
+
+    // 2. Count certificates by status
+    const totalCertificates = await Certificate.countDocuments({})
+    const pendingCertificates = await Certificate.countDocuments({ status: 'pending' })
+    const verifiedCertificates = await Certificate.countDocuments({ status: 'verified' })
+    const rejectedCertificates = await Certificate.countDocuments({ status: 'rejected' })
+
+    // 3. Calculate percentages (avoid dividing by zero)
+    const verificationPercentage = totalCertificates > 0
+      ? Math.round((verifiedCertificates / totalCertificates) * 100)
+      : 0
+
+    const rejectionPercentage = totalCertificates > 0
+      ? Math.round((rejectedCertificates / totalCertificates) * 100)
+      : 0
+
+    // 4. Monthly certificate activity (last 6 months)
+    // We group certificates by their createdAt month using MongoDB aggregation.
+    const sixMonthsAgo = new Date()
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5)
+    sixMonthsAgo.setDate(1)
+    sixMonthsAgo.setHours(0, 0, 0, 0)
+
+    const monthlyActivity = await Certificate.aggregate([
+      {
+        // Only look at certificates created in the last 6 months
+        $match: {
+          createdAt: { $gte: sixMonthsAgo },
+        },
+      },
+      {
+        // Group them by year and month
+        $group: {
+          _id: {
+            year: { $year: '$createdAt' },
+            month: { $month: '$createdAt' },
+          },
+          count: { $sum: 1 },
+        },
+      },
+      {
+        // Sort by year then month (oldest first)
+        $sort: { '_id.year': 1, '_id.month': 1 },
+      },
+    ])
+
+    // Build a friendly array of the last 6 months with counts
+    // (even months with zero certificates will show 0)
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    const monthlyTrend = []
+
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date()
+      date.setMonth(date.getMonth() - i)
+      const year = date.getFullYear()
+      const month = date.getMonth() + 1 // getMonth() is 0-based, so +1
+
+      // Find the matching entry from the aggregation result
+      const match = monthlyActivity.find(
+        (item) => item._id.year === year && item._id.month === month
+      )
+
+      monthlyTrend.push({
+        month: monthNames[month - 1],
+        year,
+        count: match ? match.count : 0,
+      })
+    }
+
+    // 5. Most active verifiers (top 5 by number of certificates handled)
+    // We group certificates by verifierEmail and count them.
+    const activeVerifiers = await Certificate.aggregate([
+      {
+        // Only count certificates that have been reviewed (not pending)
+        $match: {
+          status: { $in: ['verified', 'rejected'] },
+          verifierEmail: { $exists: true, $ne: '' },
+        },
+      },
+      {
+        // Group by verifier email
+        $group: {
+          _id: '$verifierEmail',
+          count: { $sum: 1 },
+        },
+      },
+      {
+        // Sort by count (highest first)
+        $sort: { count: -1 },
+      },
+      {
+        // Only take the top 5
+        $limit: 5,
+      },
+    ])
+
+    // Look up verifier names for the top active verifiers
+    const activeVerifiersWithNames = await Promise.all(
+      activeVerifiers.map(async (verifier) => {
+        const user = await User.findOne({ email: verifier._id, role: 'verifier' }).select('name email')
+        return {
+          email: verifier._id,
+          name: user?.name || 'Unknown',
+          count: verifier.count,
+        }
+      })
+    )
+
+    // 6. Send all statistics back to the frontend
+    res.json({
+      totalStudents,
+      totalVerifiers,
+      totalCertificates,
+      pendingCertificates,
+      verifiedCertificates,
+      rejectedCertificates,
+      verificationPercentage,
+      rejectionPercentage,
+      monthlyTrend,
+      activeVerifiers: activeVerifiersWithNames,
+    })
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message })
+  }
+}

@@ -3,6 +3,14 @@ import axios from 'axios'
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
 export const adminService = {
+  async getAnalytics() {
+    const token = localStorage.getItem('token')
+    const response = await axios.get(`${API_URL}/admin/analytics`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    return response.data
+  },
+
   async getUsers() {
     const token = localStorage.getItem('token')
     const response = await axios.get(`${API_URL}/admin/users`, {

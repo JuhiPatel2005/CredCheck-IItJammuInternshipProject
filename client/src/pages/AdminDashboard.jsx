@@ -15,6 +15,9 @@ import {
   Shield,
   Download,
   Eye,
+  BarChart3,
+  TrendingUp,
+  Award,
 } from 'lucide-react'
 import PageHeader from '../components/PageHeader'
 import Loader from '../components/Loader'
@@ -32,6 +35,7 @@ export default function AdminDashboard() {
   const [verifierRequests, setVerifierRequests] = useState([])
   const [certificates, setCertificates] = useState([])
   const [reports, setReports] = useState([])
+  const [analytics, setAnalytics] = useState(null)
   const [loading, setLoading] = useState(true)
   const [certFilter, setCertFilter] = useState('all')
   const [showCertMenu, setShowCertMenu] = useState(false)
@@ -40,7 +44,9 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     const path = location.pathname
-    if (path.includes('/students')) {
+    if (path.includes('/analytics')) {
+      setView('analytics')
+    } else if (path.includes('/students')) {
       setView('students')
     } else if (path.includes('/verifiers')) {
       setView('verifiers')
@@ -60,6 +66,8 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (view === 'dashboard') {
       loadDashboardData()
+    } else if (view === 'analytics') {
+      loadAnalytics()
     } else if (view === 'students') {
       loadUsers()
     } else if (view === 'verifiers') {
@@ -141,6 +149,18 @@ export default function AdminDashboard() {
       setReports(data)
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to load reports')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const loadAnalytics = async () => {
+    try {
+      setLoading(true)
+      const data = await adminService.getAnalytics()
+      setAnalytics(data)
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to load analytics')
     } finally {
       setLoading(false)
     }
@@ -492,6 +512,209 @@ export default function AdminDashboard() {
             </div>
           </div>
         )}
+      </div>
+    )
+  }
+
+  if (view === 'analytics') {
+    if (loading) {
+      return <Loader />
+    }
+
+    // If there is no analytics data yet, show an empty state
+    if (!analytics) {
+      return (
+        <div className="mx-auto max-w-7xl space-y-6">
+          <PageHeader title="Analytics" subtitle="Platform statistics and trends" />
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 text-center py-12">
+            <BarChart3 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-500 text-lg">No analytics data available</p>
+          </div>
+        </div>
+      )
+    }
+
+    // Find the highest monthly count so we can scale the bar chart
+    const maxMonthlyCount = Math.max(...analytics.monthlyTrend.map((item) => item.count), 1)
+
+    return (
+      <div className="mx-auto max-w-7xl space-y-6">
+        <PageHeader title="Analytics" subtitle="Platform statistics and trends" />
+
+        {/* ===== Statistic Cards ===== */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Students</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{analytics.totalStudents}</p>
+              </div>
+              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                <Users className="w-6 h-6 text-blue-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Verifiers</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{analytics.totalVerifiers}</p>
+              </div>
+              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                <UserCheck className="w-6 h-6 text-purple-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Certificates</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{analytics.totalCertificates}</p>
+              </div>
+              <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center">
+                <FileText className="w-6 h-6 text-indigo-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Pending Certificates</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{analytics.pendingCertificates}</p>
+              </div>
+              <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                <Clock className="w-6 h-6 text-yellow-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Verified Certificates</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{analytics.verifiedCertificates}</p>
+              </div>
+              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                <FileText className="w-6 h-6 text-green-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Rejected Certificates</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{analytics.rejectedCertificates}</p>
+              </div>
+              <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+                <AlertTriangle className="w-6 h-6 text-red-600" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ===== Verification / Rejection Percentages ===== */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+            <div className="flex items-center gap-3 mb-4">
+              <TrendingUp className="w-5 h-5 text-green-600" />
+              <h3 className="text-lg font-semibold text-gray-900">Verification Rate</h3>
+            </div>
+            <p className="text-4xl font-bold text-green-600">{analytics.verificationPercentage}%</p>
+            <p className="text-sm text-gray-500 mt-2">
+              {analytics.verifiedCertificates} out of {analytics.totalCertificates} certificates verified
+            </p>
+            <div className="mt-4 h-3 bg-gray-100 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-green-500 rounded-full transition-all"
+                style={{ width: `${analytics.verificationPercentage}%` }}
+              />
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+            <div className="flex items-center gap-3 mb-4">
+              <AlertTriangle className="w-5 h-5 text-red-600" />
+              <h3 className="text-lg font-semibold text-gray-900">Rejection Rate</h3>
+            </div>
+            <p className="text-4xl font-bold text-red-600">{analytics.rejectionPercentage}%</p>
+            <p className="text-sm text-gray-500 mt-2">
+              {analytics.rejectedCertificates} out of {analytics.totalCertificates} certificates rejected
+            </p>
+            <div className="mt-4 h-3 bg-gray-100 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-red-500 rounded-full transition-all"
+                style={{ width: `${analytics.rejectionPercentage}%` }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* ===== Monthly Trend Chart (pure CSS bar chart) ===== */}
+        <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+          <div className="flex items-center gap-3 mb-6">
+            <BarChart3 className="w-5 h-5 text-blue-600" />
+            <h3 className="text-lg font-semibold text-gray-900">Monthly Certificate Activity</h3>
+          </div>
+
+          {analytics.monthlyTrend.every((item) => item.count === 0) ? (
+            <div className="text-center py-8">
+              <p className="text-gray-500">No certificate activity in the last 6 months</p>
+            </div>
+          ) : (
+            <div className="flex items-end justify-between gap-4 h-48">
+              {analytics.monthlyTrend.map((item, index) => (
+                <div key={index} className="flex flex-col items-center flex-1">
+                  <span className="text-sm font-medium text-gray-700 mb-1">{item.count}</span>
+                  <div
+                    className="w-full max-w-[40px] bg-blue-500 rounded-t-lg hover:bg-blue-600 transition-all"
+                    style={{
+                      height: `${(item.count / maxMonthlyCount) * 100}%`,
+                      minHeight: item.count > 0 ? '8px' : '2px',
+                    }}
+                  />
+                  <span className="text-xs text-gray-500 mt-2">{item.month}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ===== Most Active Verifiers ===== */}
+        <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+          <div className="flex items-center gap-3 mb-6">
+            <Award className="w-5 h-5 text-purple-600" />
+            <h3 className="text-lg font-semibold text-gray-900">Most Active Verifiers</h3>
+          </div>
+
+          {analytics.activeVerifiers.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-gray-500">No verifier activity yet</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {analytics.activeVerifiers.map((verifier, index) => (
+                <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center text-sm font-semibold text-purple-600">
+                      {index + 1}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{verifier.name}</p>
+                      <p className="text-xs text-gray-500">{verifier.email}</p>
+                    </div>
+                  </div>
+                  <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-medium">
+                    {verifier.count} certs
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     )
   }

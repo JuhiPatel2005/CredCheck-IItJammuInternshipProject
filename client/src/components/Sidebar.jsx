@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { GraduationCap, LayoutDashboard, FileText, User, Users, Shield, AlertTriangle } from 'lucide-react'
+import { GraduationCap, LayoutDashboard, FileText, User, Users, Shield, AlertTriangle, BarChart3 } from 'lucide-react'
 
 export default function Sidebar() {
   const location = useLocation()
@@ -34,6 +34,7 @@ export default function Sidebar() {
 
   const adminLinks = [
     { to: '/dashboard/admin', icon: LayoutDashboard, label: 'Dashboard' },
+    { to: '/dashboard/admin/analytics', icon: BarChart3, label: 'Analytics' },
     { to: '/dashboard/admin/students', icon: Users, label: 'Students' },
     { to: '/dashboard/admin/verifiers', icon: Shield, label: 'Verifiers' },
     { to: '/dashboard/admin/certificates', icon: FileText, label: 'Certificates' },

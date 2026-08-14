@@ -75,6 +75,7 @@ function App() {
           </ProtectedRoute>
         }>
           <Route index element={<AdminDashboard />} />
+          <Route path="analytics" element={<AdminDashboard />} />
           <Route path="students" element={<AdminDashboard />} />
           <Route path="verifiers" element={<AdminDashboard />} />
           <Route path="certificates" element={<AdminDashboard />} />

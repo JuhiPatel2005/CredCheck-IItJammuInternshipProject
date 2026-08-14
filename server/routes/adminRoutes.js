@@ -9,6 +9,7 @@ import {
   deleteVerifier,
   toggleUserTrusted,
   toggleTrustedVerifier,
+  getAnalytics,
 } from '../controllers/adminController.js'
 import { authenticateUser, authorizeRoles } from '../middleware/authMiddleware.js'
 
@@ -16,6 +17,8 @@ const router = express.Router()
 
 router.use(authenticateUser)
 router.use(authorizeRoles('admin'))
+
+router.get('/analytics', getAnalytics)
 
 router.get('/users', getAllUsers)
 
