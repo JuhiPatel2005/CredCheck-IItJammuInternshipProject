@@ -37,6 +37,8 @@ const buildEmailHtml = (title, bodyHtml) => `
 
 // Helper: send an email using the same Brevo logic as sendOtpEmail.
 // This is a NEW function (not overriding the original) so the OTP flow stays untouched.
+// NOTE: The parameter is named `toEmail`. We use `toEmail` everywhere
+// inside the function (not `to`) so the recipient is never undefined.
 const sendEmail = async (toEmail, subject, htmlContent) => {
   const apiKey = process.env.BREVO_API_KEY
   if (!apiKey) {
@@ -51,16 +53,16 @@ const sendEmail = async (toEmail, subject, htmlContent) => {
       const defaultApiInstance = new SibApiV3Sdk.TransactionalEmailsApi()
 
       const sendSmtpEmail = SibApiV3Sdk.SendSmtpEmail.constructFromObject({
-        to: [{ email: to }],
+        to: [{ email: toEmail }],
         sender: { email: SENDER_EMAIL, name: 'CredCheck' },
         subject,
         htmlContent,
       })
 
       const data = await defaultApiInstance.sendTransacEmail(sendSmtpEmail)
-      console.log(`[Email Service] Sent "${subject}" to ${to} via Brevo API. Message ID: ${data.messageId}`)
+      console.log(`[Email Service] Sent "${subject}" to ${toEmail} via Brevo API. Message ID: ${data.messageId}`)
     } catch (error) {
-      console.error(`[Email Service] Brevo API FAILED for "${subject}" to ${to}:`, error.message)
+      console.error(`[Email Service] Brevo API FAILED for "${subject}" to ${toEmail}:`, error.message)
     }
     return
   }
@@ -91,14 +93,14 @@ const sendEmail = async (toEmail, subject, htmlContent) => {
 
       const info = await transporter.sendMail({
         from: `"CredCheck" <${SENDER_EMAIL}>`,
-        to,
+        to: toEmail,
         subject,
         html: htmlContent,
       })
 
-      console.log(`[Email Service] Notification "${subject}" sent to ${to} via SMTP (messageId: ${info.messageId})`)
+      console.log(`[Email Service] Notification "${subject}" sent to ${toEmail} via SMTP (messageId: ${info.messageId})`)
     } catch (error) {
-      console.error(`[Email Service] SMTP FAILED for "${subject}" to ${to}:`, error.message)
+      console.error(`[Email Service] SMTP FAILED for "${subject}" to ${toEmail}:`, error.message)
     }
     return
   }
