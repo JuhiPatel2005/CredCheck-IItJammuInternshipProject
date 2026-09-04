@@ -7,6 +7,7 @@ import { authService } from '../services/authService'
 
 export default function Login() {
   const [activeRole, setActiveRole] = useState('student')
+  const [isGoogleLoggingIn, setIsGoogleLoggingIn] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
   const [verifierEmail, setVerifierEmail] = useState('')
@@ -31,19 +32,33 @@ export default function Login() {
     formState: { errors, isSubmitting },
   } = useForm()
 
-  const onGoogleSuccess = async (credentialResponse) => {
-    try {
-      const response = await authService.googleLogin(credentialResponse.credential)
-      toast.success('Login successful!')
-      navigate('/dashboard/student')
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Google login failed')
-    }
+const onGoogleSuccess = async (credentialResponse) => {
+  if (isGoogleLoggingIn) return
+
+  if (!credentialResponse?.credential) {
+    toast.error('Google login did not return a valid credential')
+    return
   }
 
+  try {
+    setIsGoogleLoggingIn(true)
+
+    await authService.googleLogin(credentialResponse.credential)
+
+    toast.success('Login successful!')
+    navigate('/dashboard/student', { replace: true })
+  } catch (error) {
+    toast.error(error.response?.data?.message || 'Google login failed')
+  } finally {
+    setIsGoogleLoggingIn(false)
+  }
+}
+
   const onGoogleError = () => {
+  if (!isGoogleLoggingIn) {
     toast.error('Google login failed')
   }
+}
   const onVerifierSubmit = async (data) => {
     try {
       setIsSendingVerifierOtp(true)
