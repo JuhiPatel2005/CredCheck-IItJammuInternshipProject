@@ -32,33 +32,33 @@ export default function Login() {
     formState: { errors, isSubmitting },
   } = useForm()
 
-const onGoogleSuccess = async (credentialResponse) => {
-  if (isGoogleLoggingIn) return
+  const onGoogleSuccess = async (credentialResponse) => {
+    if (isGoogleLoggingIn) return
 
-  if (!credentialResponse?.credential) {
-    toast.error('Google login did not return a valid credential')
-    return
+    if (!credentialResponse?.credential) {
+      toast.error('Google login did not return a valid credential')
+      return
+    }
+
+    try {
+      setIsGoogleLoggingIn(true)
+
+      await authService.googleLogin(credentialResponse.credential)
+
+      toast.success('Login successful!')
+      navigate('/dashboard/student', { replace: true })
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Google login failed')
+    } finally {
+      setIsGoogleLoggingIn(false)
+    }
   }
-
-  try {
-    setIsGoogleLoggingIn(true)
-
-    await authService.googleLogin(credentialResponse.credential)
-
-    toast.success('Login successful!')
-    navigate('/dashboard/student', { replace: true })
-  } catch (error) {
-    toast.error(error.response?.data?.message || 'Google login failed')
-  } finally {
-    setIsGoogleLoggingIn(false)
-  }
-}
 
   const onGoogleError = () => {
-  if (!isGoogleLoggingIn) {
-    toast.error('Google login failed')
+    if (!isGoogleLoggingIn) {
+      toast.error('Google login failed')
+    }
   }
-}
   const onVerifierSubmit = async (data) => {
     try {
       setIsSendingVerifierOtp(true)
@@ -168,33 +168,30 @@ const onGoogleSuccess = async (credentialResponse) => {
             <button
               type="button"
               onClick={() => handleRoleChange('student')}
-              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                activeRole === 'student'
+              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${activeRole === 'student'
                   ? 'bg-white text-indigo-600 shadow-sm'
                   : 'text-gray-500 hover:text-gray-700'
-              }`}
+                }`}
             >
               Student
             </button>
             <button
               type="button"
               onClick={() => handleRoleChange('verifier')}
-              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                activeRole === 'verifier'
+              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${activeRole === 'verifier'
                   ? 'bg-white text-indigo-600 shadow-sm'
                   : 'text-gray-500 hover:text-gray-700'
-              }`}
+                }`}
             >
               Verifier
             </button>
             <button
               type="button"
               onClick={() => handleRoleChange('admin')}
-              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                activeRole === 'admin'
+              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${activeRole === 'admin'
                   ? 'bg-white text-indigo-600 shadow-sm'
                   : 'text-gray-500 hover:text-gray-700'
-              }`}
+                }`}
             >
               Admin
             </button>
@@ -216,6 +213,7 @@ const onGoogleSuccess = async (credentialResponse) => {
                 size="large"
                 logo_alignment="left"
                 type="standard"
+                use_fedcm_for_button={true}
               />
             </div>
           </div>
