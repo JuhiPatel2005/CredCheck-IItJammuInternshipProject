@@ -1,17 +1,4 @@
-// ============================================================
-// CENTRALIZED EMAIL NOTIFICATION SERVICE
-// ============================================================
-// This service reuses the same Brevo/SMTP configuration used
-// by the OTP email function in authController.js.
-// It reads the same environment variables from .env:
-//   BREVO_API_KEY, EMAIL_FROM, EMAIL_HOST, EMAIL_PORT,
-//   EMAIL_USER, EMAIL_PASS, CLIENT_URL
-//
-// IMPORTANT: Email failures are logged and swallowed.
-// The caller's main operation (certificate upload, verification,
-// rejection, verifier approval) must NEVER fail because of an
-// email error.
-// ============================================================
+
 
 import SibApiV3Sdk from 'sib-api-v3-sdk'
 import nodemailer from 'nodemailer'
